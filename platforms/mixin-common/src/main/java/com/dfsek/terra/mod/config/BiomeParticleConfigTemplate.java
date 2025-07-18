@@ -10,6 +10,8 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.world.biome.BiomeParticleConfig;
 
+import java.util.stream.Stream;
+
 
 public class BiomeParticleConfigTemplate implements ObjectTemplate<BiomeParticleConfig> {
     @Value("particle")
@@ -18,19 +20,19 @@ public class BiomeParticleConfigTemplate implements ObjectTemplate<BiomeParticle
 
     @Value("probability")
     @Default
-    private Integer probability = null;
+    private Float probability = 0.1f;
 
     @Override
     public BiomeParticleConfig get() {
-        if(particle == null || probability == null) {
+        if(particle == null) {
             return null;
         }
 
         try {
             return new BiomeParticleConfig(
                 ParticleEffectArgumentType.readParameters(new StringReader(particle),
-                    (RegistryWrapper.WrapperLookup) Registries.PARTICLE_TYPE),
-                probability);
+                    RegistryWrapper.WrapperLookup.of(Stream.of(Registries.PARTICLE_TYPE))),
+            probability);
         } catch(CommandSyntaxException e) {
             throw new RuntimeException(e);
         }
