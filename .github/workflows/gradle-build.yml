@@ -7,7 +7,7 @@
 
 name: Gradle Build
 
-on: [ pull_request ]
+on: [ workflow_dispatch ]
 
 jobs:
   build:
@@ -45,3 +45,7 @@ jobs:
           properties: |
             kotlin.js.compiler=ir
             kotlin.parallel.tasks.in.project=true
+      - name: Upload the final artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: platforms/bukkit/build/libs/*.jar
