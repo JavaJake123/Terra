@@ -6,6 +6,10 @@ plugins {
 repositories {
     mavenCentral()
     gradlePluginPortal()
+    }
+    maven("https://repo.papermc.io/repository/maven-public/") {
+        name = "PaperMC"
+    }
     maven("https://maven.solo-studios.ca/releases") {
         name = "Solo Studios"
     }
@@ -14,9 +18,6 @@ repositories {
     }
     maven("https://repo.codemc.org/repository/maven-public") {
         name = "CodeMC"
-    }
-    maven("https://repo.papermc.io/repository/maven-public/") {
-        name = "PaperMC"
     }
 }
 
