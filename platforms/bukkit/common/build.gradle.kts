@@ -5,7 +5,7 @@ repositories {
 dependencies {
     shadedApi(project(":common:implementation:base"))
 
-    compileOnly(compileOnly("io.papermc.paper", "paper-api", Versions.Bukkit.paper)
+    compileOnly("io.papermc.paper", "paper-api", Versions.Bukkit.paper)
 
     compileOnly("org.mvplugins.multiverse.core", "multiverse-core", Versions.Bukkit.multiverse)
 
