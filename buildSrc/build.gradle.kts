@@ -6,17 +6,29 @@ plugins {
 repositories {
     mavenCentral()
     gradlePluginPortal()
-    maven("https://repo.papermc.io/repository/maven-public/") {
-        name = "PaperMC"
-    }
-    maven("https://repo.codemc.org/repository/maven-public") {
-        name = "CodeMC"
-    }
     maven("https://maven.solo-studios.ca/releases") {
-        name = "Solo Studios"
+        name = "Solo Studios Releases"
+        content {
+            excludeGroupByRegex("io\\.papermc(\\..*)?")
+        }
     }
+
     maven("https://maven.solo-studios.ca/snapshots") {
         name = "Solo Studios Snapshots"
+        content {
+            excludeGroupByRegex("io\\.papermc(\\..*)?")
+        }
+    }
+
+    maven("https://repo.papermc.io/repository/maven-public/") {
+        name = "PaperMC"
+        content {
+            includeGroupByRegex("io\\.papermc(\\..*)?")
+        }
+    }
+
+    maven("https://repo.codemc.org/repository/maven-public") {
+        name = "CodeMC"
     }
 }
 
