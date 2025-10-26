@@ -20,6 +20,7 @@ package com.dfsek.terra.mod.generation;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.command.argument.BlockStateArgument;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
@@ -38,7 +39,6 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.StructureWeightSampler;
 import net.minecraft.world.gen.chunk.Blender;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
 import net.minecraft.world.gen.chunk.VerticalBlockSample;
 import net.minecraft.world.gen.densityfunction.DensityFunction.UnblendedNoisePos;
 import net.minecraft.world.gen.noise.NoiseConfig;
@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import com.dfsek.terra.api.block.state.BlockStateExtended;
 import com.dfsek.terra.api.config.ConfigPack;
 import com.dfsek.terra.api.world.biome.generation.BiomeProvider;
 import com.dfsek.terra.api.world.chunk.generation.ChunkGenerator;
@@ -67,12 +68,13 @@ public class MinecraftChunkGeneratorWrapper extends net.minecraft.world.gen.chun
     private static final Logger logger = LoggerFactory.getLogger(MinecraftChunkGeneratorWrapper.class);
 
     private final TerraBiomeSource biomeSource;
-    private final RegistryEntry<ChunkGeneratorSettings> settings;
+    private final GenerationSettings settings;
     private ChunkGenerator delegate;
     private ConfigPack pack;
 
+
     public MinecraftChunkGeneratorWrapper(TerraBiomeSource biomeSource, ConfigPack configPack,
-                                          RegistryEntry<ChunkGeneratorSettings> settingsSupplier) {
+                                          GenerationSettings settingsSupplier) {
         super(biomeSource);
         this.pack = configPack;
         this.settings = settingsSupplier;
@@ -94,18 +96,13 @@ public class MinecraftChunkGeneratorWrapper extends net.minecraft.world.gen.chun
 
     @Override
     public void populateEntities(ChunkRegion region) {
-        if(!this.settings.value().mobGenerationDisabled()) {
+        if(this.settings.mobGeneration()) {
             ChunkPos chunkPos = region.getCenterPos();
             RegistryEntry<Biome> registryEntry = region.getBiome(chunkPos.getStartPos().withY(region.getTopYInclusive() - 1));
             ChunkRandom chunkRandom = new ChunkRandom(new CheckedRandom(RandomSeed.getSeed()));
             chunkRandom.setPopulationSeed(region.getSeed(), chunkPos.getStartX(), chunkPos.getStartZ());
             SpawnHelper.populateEntities(region, registryEntry, chunkPos, chunkRandom);
         }
-    }
-
-    @Override
-    public int getWorldHeight() {
-        return settings.value().generationShapeConfig().height();
     }
 
     @Override
@@ -138,9 +135,18 @@ public class MinecraftChunkGeneratorWrapper extends net.minecraft.world.gen.chun
                 for(int y = world.getMaxHeight(); y >= world.getMinHeight(); y--) {
                     double noise = structureWeightSampler.sample(new UnblendedNoisePos(x + xi, y, z + zi));
                     if(noise > threshold) {
-                        chunk.setBlockState(new BlockPos(x, y, z), (BlockState) delegate
-                            .getPalette(x + xi, y, z + zi, world, biomeProvider)
-                            .get(depth, x + xi, y, z + zi, world.getSeed()), 0);
+                        com.dfsek.terra.api.block.state.BlockState data = delegate.getPalette(x + xi, y, z + zi, world, biomeProvider).get(
+                            depth, x + xi, y, z + zi, world.getSeed());
+                        BlockPos blockPos = new BlockPos(x, y, z);
+                        boolean isExtended = data.isExtended() && data.getClass().equals(BlockStateArgument.class);
+                        if(isExtended) {
+                            BlockStateExtended blockStateExtended = (BlockStateExtended) data;
+
+                            net.minecraft.block.BlockState blockState = (net.minecraft.block.BlockState) blockStateExtended.getState();
+                            chunk.setBlockState(blockPos, blockState, 0);
+                        } else {
+                            chunk.setBlockState(blockPos, (net.minecraft.block.BlockState) data, 0);
+                        }
                         depth++;
                     } else if(noise < airThreshold) {
                         chunk.setBlockState(new BlockPos(x, y, z), Blocks.AIR.getDefaultState(), 0);
@@ -163,15 +169,24 @@ public class MinecraftChunkGeneratorWrapper extends net.minecraft.world.gen.chun
     }
 
     @Override
+    public int getWorldHeight() {
+        return settings.height().getRange();
+    }
+
+    @Override
     public int getSeaLevel() {
-        return settings.value().seaLevel();
+        return settings.sealevel();
     }
 
     @Override
     public int getMinimumY() {
-        return settings.value().generationShapeConfig().minimumY();
+        return settings.height().getMin();
     }
 
+    @Override
+    public int getSpawnHeight(HeightLimitView world) {
+        return settings.spawnHeight();
+    }
 
     @Override
     public int getHeight(int x, int z, Type heightmap, HeightLimitView height, NoiseConfig noiseConfig) {
@@ -179,9 +194,12 @@ public class MinecraftChunkGeneratorWrapper extends net.minecraft.world.gen.chun
         BiomeProvider biomeProvider = pack.getBiomeProvider();
         int min = height.getBottomY();
         for(int y = height.getTopYInclusive() - 1; y >= min; y--) {
+            com.dfsek.terra.api.block.state.BlockState terraBlockState = delegate.getBlock(properties, x, y, z, biomeProvider);
+            BlockState blockState =
+                (BlockState) (terraBlockState.isExtended() ? ((BlockStateExtended) terraBlockState).getState() : terraBlockState);
             if(heightmap
                 .getBlockPredicate()
-                .test((BlockState) delegate.getBlock(properties, x, y, z, biomeProvider))) return y + 1;
+                .test(blockState)) return y + 1;
         }
         return min;
     }
@@ -192,14 +210,17 @@ public class MinecraftChunkGeneratorWrapper extends net.minecraft.world.gen.chun
         WorldProperties properties = MinecraftAdapter.adapt(height, SeedHack.getSeed(noiseConfig.getMultiNoiseSampler()));
         BiomeProvider biomeProvider = pack.getBiomeProvider();
         for(int y = height.getTopYInclusive() - 1; y >= height.getBottomY(); y--) {
-            array[y - height.getBottomY()] = (BlockState) delegate.getBlock(properties, x, y, z, biomeProvider);
+            com.dfsek.terra.api.block.state.BlockState terraBlockState = delegate.getBlock(properties, x, y, z, biomeProvider);
+            BlockState blockState =
+                (BlockState) (terraBlockState.isExtended() ? ((BlockStateExtended) terraBlockState).getState() : terraBlockState);
+            array[y - height.getBottomY()] = blockState;
         }
         return new VerticalBlockSample(height.getBottomY(), array);
     }
 
     @Override
     public void appendDebugHudText(List<String> text, NoiseConfig noiseConfig, BlockPos pos) {
-
+        // no op
     }
 
     public ConfigPack getPack() {
@@ -226,7 +247,7 @@ public class MinecraftChunkGeneratorWrapper extends net.minecraft.world.gen.chun
         return delegate;
     }
 
-    public RegistryEntry<ChunkGeneratorSettings> getSettings() {
+    public GenerationSettings getSettings() {
         return settings;
     }
 

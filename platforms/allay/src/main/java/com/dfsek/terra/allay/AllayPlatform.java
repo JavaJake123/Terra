@@ -3,8 +3,8 @@ package com.dfsek.terra.allay;
 import com.dfsek.tectonic.api.TypeRegistry;
 import com.dfsek.tectonic.api.depth.DepthTracker;
 import com.dfsek.tectonic.api.exception.LoadException;
+import org.allaymc.api.registry.Registries;
 import org.allaymc.api.server.Server;
-import org.allaymc.api.world.biome.BiomeId;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -20,6 +20,7 @@ import com.dfsek.terra.api.block.state.BlockState;
 import com.dfsek.terra.api.handle.ItemHandle;
 import com.dfsek.terra.api.handle.WorldHandle;
 import com.dfsek.terra.api.world.biome.PlatformBiome;
+
 
 /**
  * @author daoge_cmd
@@ -38,19 +39,19 @@ public class AllayPlatform extends AbstractPlatform {
     @Override
     public boolean reload() {
         getTerraConfig().load(this);
-        getRawConfigRegistry().clear();
-        boolean succeed = getRawConfigRegistry().loadAll(this);
+        boolean succeed = loadConfigPacks();
 
         GENERATOR_WRAPPERS.forEach(wrapper -> {
             getConfigRegistry().get(wrapper.getConfigPack().getRegistryKey()).ifPresent(pack -> {
                 wrapper.setConfigPack(pack);
                 var dimension = wrapper.getAllayWorldGenerator().getDimension();
-                TerraAllayPlugin.INSTANCE.getPluginLogger().info(
+                TerraAllayPlugin.instance.getPluginLogger().info(
                     "Replaced pack in chunk generator for world {}",
                     dimension.getWorld().getWorldData().getDisplayName() + ":" + dimension.getDimensionInfo().dimensionId()
                 );
             });
         });
+
         return succeed;
     }
 
@@ -71,7 +72,7 @@ public class AllayPlatform extends AbstractPlatform {
 
     @Override
     public @NotNull File getDataFolder() {
-        return TerraAllayPlugin.INSTANCE.getPluginContainer().dataFolder().toFile();
+        return TerraAllayPlugin.instance.getPluginContainer().dataFolder().toFile();
     }
 
     @Override
@@ -88,6 +89,6 @@ public class AllayPlatform extends AbstractPlatform {
 
     protected AllayBiome parseBiome(String id, DepthTracker depthTracker) throws LoadException {
         if(!id.startsWith("minecraft:")) throw new LoadException("Invalid biome identifier " + id, depthTracker);
-        return new AllayBiome(BiomeId.fromId(Mapping.biomeIdJeToBe(id)));
+        return new AllayBiome(Registries.BIOMES.getByK1(Mapping.biomeIdJeToBe(id)));
     }
 }

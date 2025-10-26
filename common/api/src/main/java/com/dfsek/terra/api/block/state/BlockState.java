@@ -12,12 +12,13 @@ import java.util.function.Consumer;
 import com.dfsek.terra.api.Handle;
 import com.dfsek.terra.api.block.BlockType;
 import com.dfsek.terra.api.block.state.properties.Property;
+import com.dfsek.terra.api.data.Extendable;
 
 
 /**
  * Contains basic data about a {@link BlockType} in the world
  */
-public interface BlockState extends Handle {
+public interface BlockState extends Handle, Extendable {
 
     /**
      * Whether this {@link BlockState} matches another.

@@ -2,6 +2,7 @@ package com.dfsek.terra.minestom.block;
 
 import net.minestom.server.instance.block.Block;
 
+import java.util.HashMap;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -12,6 +13,7 @@ import com.dfsek.terra.api.block.state.properties.Property;
 
 public class MinestomBlockState implements BlockState {
     private final Block block;
+    public static final MinestomBlockState AIR = new MinestomBlockState(Block.AIR);
 
     public MinestomBlockState(Block block) {
         if(block == null) {
@@ -22,10 +24,24 @@ public class MinestomBlockState implements BlockState {
     }
 
     public MinestomBlockState(String data) {
-        block = Block.fromState(data);
-        if (block == null) {
-            throw new IllegalArgumentException("Invalid block state: " + data);
+        if(!data.contains("[")) {
+            block = Block.fromKey(data);
+            return;
         }
+
+        String[] split = data.split("\\[");
+        String namespaceId = split[0];
+        String properties = split[1].substring(0, split[1].length() - 1);
+        Block block = Block.fromKey(namespaceId);
+        HashMap<String, String> propertiesMap = new HashMap<>();
+
+        for(String property : properties.split(",")) {
+            String[] kv = property.split("=");
+            propertiesMap.put(kv[0].strip(), kv[1].strip());
+        }
+
+        assert block != null;
+        this.block = block.withProperties(propertiesMap);
     }
 
     @Override

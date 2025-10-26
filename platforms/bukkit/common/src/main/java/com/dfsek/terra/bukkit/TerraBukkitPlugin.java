@@ -23,10 +23,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.incendo.cloud.SenderMapper;
-import org.incendo.cloud.brigadier.CloudBrigadierManager;
-import org.incendo.cloud.bukkit.CloudBukkitCapabilities;
 import org.incendo.cloud.execution.ExecutionCoordinator;
-import org.incendo.cloud.paper.LegacyPaperCommandManager;
+import org.incendo.cloud.paper.PaperCommandManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -42,7 +40,6 @@ import com.dfsek.terra.api.event.events.platform.CommandRegistrationEvent;
 import com.dfsek.terra.api.event.events.platform.PlatformInitializationEvent;
 import com.dfsek.terra.bukkit.generator.BukkitChunkGeneratorWrapper;
 import com.dfsek.terra.bukkit.listeners.CommonListener;
-import com.dfsek.terra.bukkit.nms.Initializer;
 import com.dfsek.terra.bukkit.util.PaperUtil;
 import com.dfsek.terra.bukkit.util.VersionUtil;
 import com.dfsek.terra.bukkit.world.BukkitAdapter;
@@ -50,10 +47,8 @@ import com.dfsek.terra.bukkit.world.BukkitAdapter;
 
 public class TerraBukkitPlugin extends JavaPlugin {
     private static final Logger logger = LoggerFactory.getLogger(TerraBukkitPlugin.class);
-
-    private PlatformImpl platform;
     private final Map<String, com.dfsek.terra.api.world.chunk.generation.ChunkGenerator> generatorMap = new HashMap<>();
-
+    private PlatformImpl platform;
     private AsyncScheduler asyncScheduler = this.getServer().getAsyncScheduler();
 
     private GlobalRegionScheduler globalRegionScheduler = this.getServer().getGlobalRegionScheduler();
@@ -64,7 +59,7 @@ public class TerraBukkitPlugin extends JavaPlugin {
             return;
         }
 
-        platform = Initializer.init(this);
+        platform = NMSInitializer.init(this);
         if(platform == null) {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
@@ -73,7 +68,7 @@ public class TerraBukkitPlugin extends JavaPlugin {
         platform.getEventManager().callEvent(new PlatformInitializationEvent());
 
         try {
-            LegacyPaperCommandManager<CommandSender> commandManager = getCommandSenderPaperCommandManager();
+            PaperCommandManager<CommandSender> commandManager = getCommandSenderPaperCommandManager();
 
             platform.getEventManager().callEvent(new CommandRegistrationEvent(commandManager));
 
@@ -93,25 +88,15 @@ public class TerraBukkitPlugin extends JavaPlugin {
     }
 
     @NotNull
-    private LegacyPaperCommandManager<CommandSender> getCommandSenderPaperCommandManager() throws Exception {
-        // TODO: Update to PaperCommandManager
-        LegacyPaperCommandManager<CommandSender> commandManager = new LegacyPaperCommandManager<>(
-            this,
-            ExecutionCoordinator.simpleCoordinator(),
-            SenderMapper.create(
+    private PaperCommandManager<CommandSender> getCommandSenderPaperCommandManager() throws Exception {
+        PaperCommandManager<CommandSender> commandManager = PaperCommandManager.builder(SenderMapper.create(
                 BukkitAdapter::adapt,
                 BukkitAdapter::adapt
-            ));
+            ))
+            .executionCoordinator(ExecutionCoordinator.simpleCoordinator())
+            .buildOnEnable(this);
 
-        if(commandManager.hasCapability(CloudBukkitCapabilities.NATIVE_BRIGADIER)) {
-            commandManager.registerBrigadier();
-            final CloudBrigadierManager<?, ?> brigManager = commandManager.brigadierManager();
-            if(brigManager != null) {
-                brigManager.setNativeNumberSuggestions(false);
-            }
-        } else if(commandManager.hasCapability(CloudBukkitCapabilities.ASYNCHRONOUS_COMPLETION)) {
-            commandManager.registerAsynchronousCompletions();
-        }
+        commandManager.brigadierManager().setNativeNumberSuggestions(false);
 
         return commandManager;
     }

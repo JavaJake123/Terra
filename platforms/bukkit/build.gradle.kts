@@ -8,7 +8,7 @@ dependencies {
     paperweight.paperDevBundle(Versions.Bukkit.paperDevBundle)
 
     shaded(project(":platforms:bukkit:common"))
-    shaded(project(":platforms:bukkit:nms:v1_21_8"))
+    shaded(project(":platforms:bukkit:nms"))
     shaded("xyz.jpenilla", "reflection-remapper", Versions.Bukkit.reflectionRemapper)
 }
 
@@ -32,8 +32,8 @@ tasks {
         pluginJars(shadowJar.get().archiveFile)
 
         downloadPlugins {
-            modrinth("viaversion", "5.3.2")
-            modrinth("viabackwards", "5.3.2")
+            modrinth("viaversion", "5.5.0")
+            modrinth("viabackwards", "5.5.0")
         }
     }
 }
